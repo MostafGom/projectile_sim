@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.17.1/matter.js"
+      integrity="sha512-TDWaR4Jcfh+czIclPCKBKsZvP3+R8jyYdHSV0bEdi/drluprR/2nx6jCpirVB21A0O86coRGKO033FR2/r4s2g=="
+      crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+
+    <title> Projectile Simulation </title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #fff;
+      }
+
+      h1 {
+        font-family: 'Sacramento', cursive;
+        font-size: 50px
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="container-fluid text-center">
+      <h1>Projectile Simulation</h1>
+      <div class="mb-2">
+        <span class="x-pos mr-5" style="font-weight: bold;">X : </span>
+        <span class="y-pos ml-5" style="font-weight: bold;">Y : </span>
+      </div>
+      <form class="form">
+        <label for="angle">Angle</label>
+        <input type="text" placeholder="angle(in degrees)" class="frminp" id="angle">
+        <label for="velocity">Velocity:(between 1 to 15)</label>
+        <input type="text" placeholder="velocity" class="frminp" id="velocity">
+        <label for="airRes">Air Resistance</label>
+        <input type="checkbox" id="airRes">
+
+        <button type="submit" class="btn btn-primary m-4" id='start'>Start</button>
+        <button type="button" class="btn btn-default" id='reset'>Reset</button>
+      </form>
+      <div id="renderport"></div>
+
+    </div>
+
+    <script>
+      startBtn = document.getElementById('start')
+      resetBtn = document.getElementById('reset')
+      airRes = document.getElementById('airRes')
+      xpos = document.querySelector('.x-pos')
+      ypos = document.querySelector('.y-pos')
+      const {
+        Engine,
+        Events,
+        Render,
+        Runner,
+        Composite,
+        Composites,
+        Constraint,
+        World,
+        Bodies,
+        Mouse,
+        MouseConstraint,
+        Body,
+        Vector
+      } = Matter;
+
+      // create an engine
+      let engine = Engine.create();
+
+      // create a renderer
+      let render;
+
+      // reset canvas
+      resetBtn.addEventListener('click', () => {
+        Render.stop(render)
+        World.clear(engine.world)
+        Engine.clear(engine)
+        render.canvas.remove();
+        render.canvas = null;
+        render.context = null;
+        render.textures = {};
+        startBtn.disabled = false
+
+
+      })
+      startBtn.addEventListener('click', (e) => {
+        // e.preventDefault()
+        if (document.querySelector('#velocity').value > 15 ||
+          document.querySelector('#velocity').value < 1) {
+          alert('Please enter valocity between 1 to 15')
+          return
+        }
+        if (document.querySelector('#value').value < 1 ||
+          document.querySelector('#velocity').value > 89) {
+          alert('Please enter angle value between 1 to 89')
+          return
+        }
+        startBtn.disabled = true
+        simulate()
+      })
+
+      function simulate() {
+        document.getElementById('renderport').style.padding = "10px";
+        render = Render.create({
+          element: document.getElementById('renderport'),
+          engine: engine,
+          options: {
+            width: 1200,
+            height: 450,
+            showVelocity: true,
+
+            background: '#0f0f13'
+          }
+        });
+        // run the engine
+        Engine.run(engine);
+        engine.world.gravity.y = 1;
+
+        // run the renderer
+        Render.run(render);
+
+        let ball = Bodies.circle(50, 390, 30, {
+          friction: 10,
+          frictionAir: airRes.checked ? 0.05 : 0,
+          restitution: 0
+        });
+        let ground = Bodies.rectangle(400, 450, 2000, 60, {
+          friction: 10,
+          isStatic: true
+        });
+
+        Body.setVelocity(ball, {
+          x: 0,
+          y: 0
+        });
+
+        let angle = document.querySelector('#angle').value
+        angle = angle * (Math.PI) / 180;
+
+        let v = document.querySelector('#velocity').value
+        let vx = v * (Math.cos(angle));
+        let vy = -v * (Math.sin(angle));
+
+
+        Body.setVelocity(ball, {
+          x: vx,
+          y: vy
+        });
+
+
+        // add all of the bodies to the world
+        World.add(engine.world, [ground, ball]);
+
+        //add trail
+        let trail = [];
+
+        Events.on(render, 'afterRender', function () {
+          xpos.innerText = `X : ${Math.round(ball.position.x)}`
+          ypos.innerText = `Y : ${Math.round(ball.position.y)}`
+          if (Math.round(ball.position.y) == 390) {
+            Render.stop(render)
+          }
+          trail.unshift({
+            position: Vector.clone(ball.position),
+            speed: ball.speed
+          });
+
+          Render.startViewTransform(render);
+          render.context.globalAlpha = 0.7;
+
+          for (let i = 0; i < trail.length; i += 1) {
+            let point = trail[i].position,
+              speed = trail[i].speed;
+
+            let hue = 250 + Math.round((1 - Math.min(1, speed / 10)) * 170);
+            render.context.fillStyle = 'hsl(' + hue + ', 100%, 55%)';
+            render.context.fillRect(point.x, point.y, 2, 2);
+          }
+
+          render.context.globalAlpha = 1;
+          Render.endViewTransform(render);
+
+          if (trail.length > 2000) {
+            trail.pop();
+          }
+        });
+
+
+      }
+    </script>
+  </body>
+
+</html>
